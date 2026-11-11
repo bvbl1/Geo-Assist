@@ -1,0 +1,17 @@
+# Local secrets (keep documented examples)
+.env
+.env.*
+!.env.example
+
+# Build and test output
+/bin/
+/tmp/
+/coverage/
+coverage.out
+*.test
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

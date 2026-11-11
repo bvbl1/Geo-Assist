@@ -1,34 +1,132 @@
-# GeoAssist: технический проект
+# GeoAssist
 
-Дата: 2026-11-07. Статус: проектные решения для реализации; код ещё не написан.
+Бэкенд Assignment #6: каталог мест в Астане, геопоиск, профили, избранное, оценки и история действий. Go + Gin + MongoDB, модульный монолит с Clean Architecture. Веб и collaborative filtering запланированы на Final Project.
 
-Это детализация [общего плана](../PLAN.md). При расхождении предварительных маршрутов и коллекций в PLAN.md с этими документами использовать данный технический проект.
+## Запуск
 
-| Документ | Что в нём |
+Нужен Docker Desktop в режиме Linux containers. Из корня проекта:
+
+```powershell
+docker compose up --build -d
+docker compose ps
+docker compose logs --tail=50 api
+Invoke-RestMethod http://localhost:8080/health/ready
+```
+
+Первый запуск скачивает образы, собирает приложение, ждёт MongoDB, инициализирует replica set `rs0`, создаёт схему и индексы, импортирует демоданные. API начинает принимать запросы после успешного импорта. Health должен вернуть `{"status":"ready"}`.
+
+- API: `http://localhost:8080/api/v1`.
+- MongoDB: `localhost:27018` (порт 27017 был занят существующей службой).
+- Остановка с сохранением данных: `docker compose down`.
+- Данные остаются в volume `geoassist_mongo_data`; не удаляйте его, если хотите сохранить изменения.
+
+## Автоматический импорт
+
+При первом запуске добавляются 100 синтетических мест Астаны, 50 пользователей, один admin, 400 состояний избранного/оценок и 1200 событий. Категории: кафе, парки, библиотеки, коворкинги и достопримечательности. Координаты расположены около `longitude=71.4304`, `latitude=51.1282`.
+
+Места помечены `(демо)`: названия, адреса и характеристики вымышлены, это не сведения о реальных заведениях. Пересекающиеся группы интересов пользователей подготовлены для будущих рекомендаций.
+
+| Роль | Email | Пароль локального демо |
+|---|---|---|
+| Admin | `admin@geoassist.local` | `Admin-demo-2026!` |
+| User | `student01@geoassist.local` | `Student-demo-2026!` |
+| Остальные пользователи | `student02@geoassist.local` … `student50@geoassist.local` | `Student-demo-2026!` |
+
+Все данные и маркер `astana-demo-v1` в `app_meta` импортируются одной транзакцией. Ошибка откатывает весь импорт. Повторный запуск при наличии маркера пропускает seed: нет дубликатов, изменений паролей или перезаписи пользовательских правок. Для непустой базы без маркера отключите `AUTO_SEED` либо выберите отдельную пустую базу. Автоматического reset/drop нет.
+
+Compose предназначен для локальной разработки: порты API и MongoDB доступны только на loopback. Демоаккаунты не предназначены для опубликованного приложения.
+
+## Postman
+
+Импортируйте коллекцию и local environment из [api/postman](api/postman/README.md). Выберите environment и запускайте запросы по порядку или через Collection Runner. Cookie jar должен быть включён. Коллекция добавляет CSRF-заголовки и сохраняет ID/версию созданного места.
+
+Для изменяющих запросов:
+
+```http
+Origin: http://localhost:8080
+X-GeoAssist-CSRF: 1
+Content-Type: application/json
+```
+
+Content-Type нужен при JSON-теле. Авторизация — cookie `geoassist_session`, не Bearer token. Регистрация не выполняет автоматический вход. Только admin меняет каталог. Для просмотра есть отдельный POST `/interactions`: GET карточки историю не изменяет.
+
+Публичный геопоиск:
+
+```text
+http://localhost:8080/api/v1/places?category=cafe&tag=wifi&longitude=71.4304&latitude=51.1282&radius_m=2000&limit=20
+```
+
+`q` ищет префикс всего названия. Изменение и удаление места требуют `expected_version`; удаление логическое. Полный контракт: [API](docs/04-api.md) и [OpenAPI](api/openapi.yaml).
+
+## Go локально, база в Docker
+
+```powershell
+docker compose up -d mongo mongo-init
+docker compose logs mongo-init
+$env:MONGO_URI = 'mongodb://localhost:27018/?replicaSet=rs0&directConnection=true'
+go run ./cmd/api
+```
+
+Дождитесь сообщения готовности replica set. Если API уже работает в Docker, сначала `docker compose stop api`, чтобы освободить порт 8080. Go должен соответствовать `go.mod` (1.24.5 или новее). Локальный URI выше также подходит для MongoDB Compass.
+
+Дополнительные команды:
+
+```powershell
+go run ./cmd/migrate
+go run ./cmd/seed
+go run ./cmd/create-admin -email 'teacher@example.com' -name 'Teacher'
+```
+
+create-admin запрашивает пароль скрытым вводом и не повышает роль существующего пользователя. seed выполняет тот же одноразовый импорт. Go читает переменные окружения процесса, а не файл `.env`.
+
+## Конфигурация
+
+| Переменная | По умолчанию |
 |---|---|
-| [01 — Архитектура](01-architecture.md) | Модульный монолит, слои, зависимости, структура Go-проекта |
-| [02 — Домен и сценарии](02-domain.md) | Бизнес-модели, правила, валидация, операции |
-| [03 — MongoDB](03-database.md) | Документы, типы, связи, индексы, транзакции |
-| [04 — HTTP API](04-api.md) | Маршруты, права, запросы, ответы, ошибки |
-| [05 — Авторизация](05-auth.md) | Cookie-сессии, роли, CSRF, пароль, ограничения |
-| [06 — Поиск и рекомендации](06-search-recommendations.md) | Геопоиск, семантика поиска, будущий CF |
-| [07 — Реализация и проверка](07-delivery.md) | Конфигурация, запуск, миграции, тесты, этапы |
+| APP_ENV | development |
+| HTTP_ADDR | :8080 |
+| APP_ORIGIN | http://localhost:8080 |
+| MONGO_URI | localhost:27018, replicaSet=rs0, directConnection=true |
+| MONGO_DATABASE | geoassist |
+| AUTO_SEED | true |
+| COOKIE_SECURE | false |
 
-## Зафиксированные решения
+Compose автоматически читает `.env`; шаблон — [.env.example](.env.example). В контейнере API используется внутренний адрес `mongo:27017`. Production требует HTTPS origin, `COOKIE_SECURE=true`, `AUTO_SEED=false`; текущий Compose является локальным стендом.
 
-- Go + Gin, официальный MongoDB Go Driver; один процесс приложения и одна MongoDB.
-- Clean Architecture: домен не зависит от Gin, BSON или MongoDB.
-- API v1: `/api/v1`; веб того же origin появится на файнале.
-- Регистрация создаёт обычного пользователя; каталог изменяет администратор.
-- Сессионная авторизация через HttpOnly cookie; JWT и refresh tokens не нужны.
-- Пять коллекций: `users`, `sessions`, `places`, `user_places`, `interactions`.
-- `user_places` хранит текущее избранное и оценку; `interactions` — неизменяемую историю событий.
-- В каждой коллекции единая проверяемая схема. Схемы разных коллекций различаются.
-- MongoDB запускается как одноузловой replica set для транзакций; это локальная конфигурация, не высокая доступность.
-- Места удаляются логически; история сохраняет ссылки на них.
-- Поиск по названию — нормализованный префикс; расстояние — по поверхности Земли, не маршрут пешком.
-- Рекомендации и полноценный веб относятся к Final Project; NLP и мессенджер — дальнейшее развитие для диссертации.
+## Проверки
 
-## Границы документов
+```powershell
+go test ./...
+go vet ./...
+$env:TEST_MONGO_URI = 'mongodb://localhost:27018/?replicaSet=rs0&directConnection=true'
+go test ./... -count=1
+```
 
-Это контракты и план, а не готовая реализация, OpenAPI-файл или отчёт о прошедших тестах. Примеры данных вымышленные. При реализации фиксируем версии зависимостей и создаём OpenAPI на основании `04-api.md`. Изменения контрактов одновременно отражаем в документации и тестах.
+Без TEST_MONGO_URI интеграционные тесты явно пропускаются. С ним они создают отдельные базы `geoassist_test_*` и очищают только их. Проверяются авторизация, роли, geo CRUD, версии, транзакции, гонки, дедупликация и seed. Рабочая база не используется.
+
+Postman-коллекцию можно выполнить из терминала при установленном Node.js:
+
+```powershell
+npx --yes newman@6.2.1 run api/postman/GeoAssist.postman_collection.json -e api/postman/GeoAssist.local.postman_environment.json
+```
+
+Прогон создаёт тестовый аккаунт и место; место в конце логически удаляется, аккаунт и история остаются. Между прогонами учитывайте ограничения частоты запросов, описанные в инструкции Postman.
+
+## Структура и документация
+
+`cmd/` — команды; `internal/identity`, `catalog`, `activity` — бизнес-модули; `internal/bootstrap` — их сборка; `platform` — инфраструктура; `shared` — общие типы; `api` — OpenAPI/Postman; `deploy` — Dockerfile; `tests/integration` — проверки на MongoDB.
+
+В каждом бизнес-модуле разделены domain, application, adapters/http и adapters/mongo. HTTP DTO не используются как BSON-документы.
+
+- [План](docs/PLAN.md)
+- [Архитектура](docs/01-architecture.md)
+- [Домен](docs/02-domain.md)
+- [MongoDB](docs/03-database.md)
+- [API](docs/04-api.md)
+- [Авторизация](docs/05-auth.md)
+- [Поиск и рекомендации](docs/06-search-recommendations.md)
+- [Этапы реализации](docs/07-delivery.md)
+- [Project proposal](docs/08-project-proposal.md)
+- [Результаты проверки](docs/09-verification.md)
+- [Туториал: устройство проекта и демонстрация API](docs/10-tutorial.md)
+- [Отчёт Assignment #6 с местами для скриншотов](docs/11-assignment-6-report.md)

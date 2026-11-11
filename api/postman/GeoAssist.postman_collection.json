@@ -1,0 +1,954 @@
+{
+  "info": {
+    "name": "GeoAssist - Assignment 6",
+    "description": "Runnable ordered backend demonstration. Local synthetic accounts only. Run once per minute to respect login rate limits; registration is limited to 5/hour/IP. Requests create a fresh user, create and soft-delete one demonstration place. Cookies are managed by Postman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "new_user_email",
+      "value": ""
+    },
+    {
+      "key": "new_user_password",
+      "value": "Postman-demo-2026!"
+    },
+    {
+      "key": "place_id",
+      "value": ""
+    },
+    {
+      "key": "place_version",
+      "value": "1"
+    },
+    {
+      "key": "view_event_key",
+      "value": ""
+    },
+    {
+      "key": "select_event_key",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if ([\"POST\", \"PUT\", \"PATCH\", \"DELETE\"].includes(pm.request.method)) {",
+          "  pm.request.headers.upsert({key: \"Origin\", value: pm.variables.get(\"origin\")});",
+          "  pm.request.headers.upsert({key: \"X-GeoAssist-CSRF\", value: \"1\"});",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"No credential fields in response\", function () { pm.expect(pm.response.text()).not.to.include(\"password_hash\"); pm.expect(pm.response.text()).not.to.include(\"token_hash\"); });"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Health live",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/health/live"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Health ready",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/health/ready"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Categories",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/categories"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Place catalog",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/places?limit=10&offset=0"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Nearby places - Astana",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/places?longitude=71.4304&latitude=51.1282&radius_m=5000&limit=20"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "pm.test(\"Distances are nonnegative and inside radius\", function () { pm.response.json().data.forEach(p => { pm.expect(p.distance_m).to.be.at.least(0); pm.expect(p.distance_m).to.be.at.most(5000); }); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Register a fresh user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{new_user_email}}\",\n  \"password\": \"{{new_user_password}}\",\n  \"display_name\": \"Postman Student\",\n  \"preferred_categories\": [\n    \"cafe\",\n    \"park\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set(\"new_user_email\", \"postman-\" + pm.variables.replaceIn(\"{{$guid}}\") + \"@example.com\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Login fresh user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{new_user_email}}\",\n  \"password\": \"{{new_user_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 My profile",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Update profile",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/me",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"display_name\": \"Postman Student Updated\",\n  \"preferred_categories\": [\n    \"library\",\n    \"cafe\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Logout fresh user",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/v1/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Login admin",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Create demo place",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/places",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Demo Coffee\",\n  \"description\": \"Synthetic place created by the Postman collection.\",\n  \"category\": \"cafe\",\n  \"tags\": [\n    \"wifi\",\n    \"quiet\"\n  ],\n  \"address\": \"Astana, demonstration address\",\n  \"location\": {\n    \"longitude\": 71.4304,\n    \"latitude\": 51.1282\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "const p = pm.response.json().data; pm.collectionVariables.set(\"place_id\", p.id); pm.collectionVariables.set(\"place_version\", p.version);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Read created place",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/places/{{place_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Update created place",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/places/{{place_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"expected_version\": {{place_version}},\n  \"description\": \"Updated synthetic place for the API demonstration.\",\n  \"tags\": [\n    \"quiet\",\n    \"wifi\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "const p = pm.response.json().data; pm.collectionVariables.set(\"place_id\", p.id); pm.collectionVariables.set(\"place_version\", p.version);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Search created place",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/places?q=postman&category=cafe&tag=wifi&tag=quiet&longitude=71.4304&latitude=51.1282&radius_m=1000"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "pm.test(\"Created place appears\", function () { pm.expect(pm.response.json().data.map(p => p.id)).to.include(pm.collectionVariables.get(\"place_id\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Logout admin",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/v1/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 Login demo student",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Current place state",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/me/places/{{place_id}}/state"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Add favorite",
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "url": "{{base_url}}/api/v1/me/favorites/{{place_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "pm.test(\"Favorite is set\", function () { pm.expect(pm.response.json().data.favorite).to.equal(true); });",
+              "pm.collectionVariables.set(\"favorite_time\", pm.response.json().data.updated_at);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Add favorite again - idempotent",
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "url": "{{base_url}}/api/v1/me/favorites/{{place_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "pm.test(\"No-op keeps timestamp\", function () { pm.expect(pm.response.json().data.updated_at).to.equal(pm.collectionVariables.get(\"favorite_time\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 List favorites",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/me/favorites?limit=100&offset=0"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 Set rating",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/me/ratings/{{place_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rating\": 5\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 Change rating",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/me/ratings/{{place_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rating\": 4\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 Record view",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/interactions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event_key\": \"{{view_event_key}}\",\n  \"place_id\": \"{{place_id}}\",\n  \"type\": \"view\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "pm.collectionVariables.set(\"view_event_id\", pm.response.json().data.id);"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set(\"view_event_key\", pm.variables.replaceIn(\"{{$guid}}\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 Replay same view - deduplicated",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/interactions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event_key\": \"{{view_event_key}}\",\n  \"place_id\": \"{{place_id}}\",\n  \"type\": \"view\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "pm.test(\"Replay returns original event\", function () { pm.expect(pm.response.json().data.id).to.equal(pm.collectionVariables.get(\"view_event_id\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 Record selection",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/interactions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event_key\": \"{{select_event_key}}\",\n  \"place_id\": \"{{place_id}}\",\n  \"type\": \"select\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set(\"select_event_key\", pm.variables.replaceIn(\"{{$guid}}\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 History for created place",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/me/interactions?place_id={{place_id}}&limit=100&offset=0"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "pm.test(\"No duplicate view or favorite events\", function () { const events = pm.response.json().data; pm.expect(events.filter(e => e.type === \"view\")).to.have.lengthOf(1); pm.expect(events.filter(e => e.type === \"favorite_added\")).to.have.lengthOf(1); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 Clear rating",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{base_url}}/api/v1/me/ratings/{{place_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "pm.test(\"Rating is cleared\", function () { pm.expect(pm.response.json().data.rating).to.equal(null); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 Remove favorite",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{base_url}}/api/v1/me/favorites/{{place_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });",
+              "pm.test(\"Favorite is cleared\", function () { pm.expect(pm.response.json().data.favorite).to.equal(false); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 Logout student",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/v1/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31 Login admin for cleanup",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32 Soft-delete created place",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{base_url}}/api/v1/places/{{place_id}}?expected_version={{place_version}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33 Deleted place returns 404",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/v1/places/{{place_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });",
+              "pm.test(\"Valid JSON response\", function () { pm.response.json(); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34 Final logout",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/v1/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

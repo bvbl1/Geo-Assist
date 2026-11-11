@@ -1,0 +1,1864 @@
+openapi: 3.0.3
+info:
+  title: GeoAssist Assignment 6 API
+  version: 1.0.0
+  description: 'Go modular monolith with MongoDB. Assignment 6 covers identity, catalog, geospatial search
+    and interactions. Recommendations and UI belong to Final Project and are not exposed here. Unknown
+    request fields/query parameters and repeated scalar query parameters are rejected. Every mutation
+    needs matching Origin and X-GeoAssist-CSRF: 1. JSON body limit: 64 KiB. Personal/auth responses are
+    Cache-Control: no-store. Demo coordinates use Astana.'
+servers:
+- url: http://localhost:8080
+  description: Local Docker development
+tags:
+- name: Identity
+- name: Catalog
+- name: Activity
+- name: Health
+paths:
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      summary: Register a user
+      tags:
+      - Identity
+      description: Creates role=user. Does not log in automatically. Password is 12?72 UTF-8 bytes.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: student@example.com
+              password: demo-password-2026
+              display_name: Abylai
+              preferred_categories:
+              - cafe
+              - park
+      responses:
+        '201':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+            Location:
+              schema:
+                type: string
+              description: /api/v1/me (requires subsequent login).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '413':
+          $ref: '#/components/responses/Error413'
+        '415':
+          $ref: '#/components/responses/Error415'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Create a session
+      tags:
+      - Identity
+      description: Creates a fixed seven-day session and replaces the current browser session. Token is
+        returned only in HttpOnly cookie, never JSON.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: student@example.com
+              password: demo-password-2026
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+            Set-Cookie:
+              schema:
+                type: string
+              description: HttpOnly host-only geoassist_session cookie; SameSite=Lax; Path=/; Secure in
+                HTTPS production. Cleared on logout.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '413':
+          $ref: '#/components/responses/Error413'
+        '415':
+          $ref: '#/components/responses/Error415'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke the current session
+      tags:
+      - Identity
+      description: No body. Idempotent for missing or expired sessions. CSRF checks still apply. Other
+        sessions remain active.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '204':
+          description: Success; no response body.
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+            Set-Cookie:
+              schema:
+                type: string
+              description: HttpOnly host-only geoassist_session cookie; SameSite=Lax; Path=/; Secure in
+                HTTPS production. Cleared on logout.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/me:
+    get:
+      operationId: getProfile
+      summary: Get own profile
+      tags:
+      - Identity
+      description: ''
+      security:
+      - sessionCookie: []
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    patch:
+      operationId: updateProfile
+      summary: Update own profile
+      tags:
+      - Identity
+      description: Only display_name and preferred_categories can change. Omitted fields are preserved;
+        null is rejected.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfilePatch'
+            example:
+              display_name: Abylai K.
+              preferred_categories: []
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '413':
+          $ref: '#/components/responses/Error413'
+        '415':
+          $ref: '#/components/responses/Error415'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/categories:
+    get:
+      operationId: listCategories
+      summary: List supported categories
+      tags:
+      - Catalog
+      description: Complete fixed dictionary, without pagination.
+      security: []
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryList'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/places:
+    get:
+      operationId: searchPlaces
+      summary: Search active places
+      tags:
+      - Catalog
+      description: 'All filters use AND. Without geo: normalized name ASC then ID ASC. With geo: distance
+        ASC then ID ASC. Distance is spherical, not a road route. Empty results return data=[]. Pagination
+        is offset-based and not a snapshot.'
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Q'
+      - $ref: '#/components/parameters/Category'
+      - $ref: '#/components/parameters/Tag'
+      - $ref: '#/components/parameters/Longitude'
+      - $ref: '#/components/parameters/Latitude'
+      - $ref: '#/components/parameters/Radius'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceList'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    post:
+      operationId: createPlace
+      summary: Create a place (admin)
+      tags:
+      - Catalog
+      description: Only admin. Tags default to an empty array. IDs, creator, timestamps and initial version=1
+        are server-managed.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceCreate'
+            example:
+              name: Example Coffee
+              description: A quiet demonstration cafe with Wi-Fi
+              category: cafe
+              tags:
+              - quiet
+              - wifi
+              address: Astana, demonstration address 1
+              location:
+                longitude: 71.4304
+                latitude: 51.1282
+      responses:
+        '201':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+            Location:
+              schema:
+                type: string
+              description: Canonical /api/v1/places/{id} URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '413':
+          $ref: '#/components/responses/Error413'
+        '415':
+          $ref: '#/components/responses/Error415'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/places/{id}:
+    get:
+      operationId: getPlace
+      summary: Get an active place
+      tags:
+      - Catalog
+      description: Does not record a view automatically. Explicit POST /interactions records views.
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/PlaceID'
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    patch:
+      operationId: updatePlace
+      summary: Partially update a place (admin)
+      tags:
+      - Catalog
+      description: Only admin. Optimistic locking requires the current expected_version. Reload after
+        VERSION_CONFLICT. Omission preserves fields; null is forbidden.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/PlaceID'
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlacePatch'
+            example:
+              expected_version: 1
+              name: Example Coffee Updated
+              tags:
+              - wifi
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '413':
+          $ref: '#/components/responses/Error413'
+        '415':
+          $ref: '#/components/responses/Error415'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    delete:
+      operationId: deletePlace
+      summary: Soft-delete a place (admin)
+      tags:
+      - Catalog
+      description: No body. Preserves history and state. Repeating deletion returns 404; stale active
+        version returns 409.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/PlaceID'
+      - $ref: '#/components/parameters/ExpectedVersion'
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '204':
+          description: Success; no response body.
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/me/places/{id}/state:
+    get:
+      operationId: getPlaceState
+      summary: Read own state for a place
+      tags:
+      - Activity
+      description: Absent state returns favorite=false and nullable fields=null. Soft-deleted places remain
+        readable here; never-existing place returns 404.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/PlaceID'
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/me/favorites/{id}:
+    put:
+      operationId: addFavorite
+      summary: Add a place to favorites
+      tags:
+      - Activity
+      description: No body. Place must be active. Setting an existing favorite is a no-op and creates
+        no duplicate event.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/PlaceID'
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    delete:
+      operationId: removeFavorite
+      summary: Remove a place from favorites
+      tags:
+      - Activity
+      description: No body. Allowed for soft-deleted places. Repeating removal is a no-op.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/PlaceID'
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/me/favorites:
+    get:
+      operationId: listFavorites
+      summary: List own favorites
+      tags:
+      - Activity
+      description: Only active places, filtered before pagination. Sorted by favorited_at DESC then internal
+        state ID DESC. distance_m=null.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteList'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/me/ratings/{id}:
+    put:
+      operationId: setRating
+      summary: Set or replace a rating
+      tags:
+      - Activity
+      description: Active place required. Repeating the same rating creates no new event.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/PlaceID'
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RatingRequest'
+            example:
+              rating: 5
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '413':
+          $ref: '#/components/responses/Error413'
+        '415':
+          $ref: '#/components/responses/Error415'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    delete:
+      operationId: removeRating
+      summary: Remove own rating
+      tags:
+      - Activity
+      description: No body. Also allowed for soft-deleted places. Repeating removal is a no-op.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/PlaceID'
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/interactions:
+    post:
+      operationId: recordInteraction
+      summary: Record a view or selection
+      tags:
+      - Activity
+      description: Only view/select are client-writable. event_key is a UUID unique per user. Identical
+        replay returns the original event even after place deletion. Reusing the key with another payload
+        returns 409. Server timestamps and owner are not client-controlled.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InteractionRequest'
+            example:
+              event_key: 83b6e8d2-9d36-4d77-8538-f352f5c776d2
+              place_id: 507f1f77bcf86cd799439011
+              type: view
+      responses:
+        '201':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionResponse'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '413':
+          $ref: '#/components/responses/Error413'
+        '415':
+          $ref: '#/components/responses/Error415'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '200':
+          description: Identical replay; no new event created.
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionResponse'
+  /api/v1/me/interactions:
+    get:
+      operationId: listInteractions
+      summary: Read own interaction history
+      tags:
+      - Activity
+      description: Includes system-generated favorite/rating events and events for soft-deleted places.
+        Sorted occurred_at DESC then ID DESC. Filters AND; a valid but absent place ID returns an empty
+        list.
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/HistoryType'
+      - $ref: '#/components/parameters/HistoryPlace'
+      - $ref: '#/components/parameters/Limit'
+      - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InteractionList'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /health/live:
+    get:
+      operationId: healthLive
+      summary: Check live
+      tags:
+      - Health
+      description: No authentication; no query parameters or request body.
+      security: []
+      parameters: []
+      responses:
+        '200':
+          description: Healthy
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - ok
+                required:
+                - status
+              example:
+                status: ok
+  /health/ready:
+    get:
+      operationId: healthReady
+      summary: Check ready
+      tags:
+      - Health
+      description: No authentication; no query parameters or request body.
+      security: []
+      parameters: []
+      responses:
+        '200':
+          description: Healthy
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - ready
+                required:
+                - status
+              example:
+                status: ready
+        '503':
+          description: Database or schema not ready
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation identifier.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - not_ready
+                required:
+                - status
+              example:
+                status: not_ready
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: geoassist_session
+      description: Obtain via POST /api/v1/auth/login. HttpOnly session cookie, fixed expiry seven days.
+  parameters:
+    PlaceID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[0-9a-fA-F]{24}$
+        example: 507f1f77bcf86cd799439011
+      description: Place identifier, not the user/place state document identifier.
+    Origin:
+      name: Origin
+      in: header
+      required: true
+      schema:
+        type: string
+      example: http://localhost:8080
+      description: Must exactly equal APP_ORIGIN (scheme, host and port); required for every mutation,
+        including login and logout.
+    CSRF:
+      name: X-GeoAssist-CSRF
+      in: header
+      required: true
+      schema:
+        type: string
+        enum:
+        - '1'
+      description: Non-secret custom header; requests without this marker are rejected.
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 10000
+        default: 0
+    Q:
+      name: q
+      in: query
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 120
+      description: Normalized prefix of the whole name (NFC, trim, lowercase). Not substring or fuzzy
+        search.
+    Category:
+      name: category
+      in: query
+      schema:
+        type: string
+        enum:
+        - cafe
+        - park
+        - library
+        - coworking
+        - attraction
+    Tag:
+      name: tag
+      in: query
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9_-]{0,31}$
+        maxItems: 20
+        uniqueItems: true
+        example:
+        - quiet
+        - wifi
+      description: Repeat tag for multiple values; all must match. Other scalar parameters cannot repeat.
+    Longitude:
+      name: longitude
+      in: query
+      schema:
+        type: number
+        format: double
+        minimum: -180
+        maximum: 180
+        example: 71.4304
+      description: Must be supplied together with latitude and radius_m.
+    Latitude:
+      name: latitude
+      in: query
+      schema:
+        type: number
+        format: double
+        minimum: -90
+        maximum: 90
+        example: 51.1282
+      description: Must be supplied together with longitude and radius_m.
+    Radius:
+      name: radius_m
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50000
+      description: Spherical radius in meters, not driving distance. All three geo parameters are required
+        together.
+    ExpectedVersion:
+      name: expected_version
+      in: query
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    HistoryType:
+      name: type
+      in: query
+      schema:
+        type: string
+        enum:
+        - view
+        - select
+        - favorite_added
+        - favorite_removed
+        - rating_set
+        - rating_removed
+    HistoryPlace:
+      name: place_id
+      in: query
+      schema:
+        type: string
+        pattern: ^[0-9a-fA-F]{24}$
+        example: 507f1f77bcf86cd799439011
+  schemas:
+    Coordinates:
+      type: object
+      additionalProperties: false
+      properties:
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          example: 71.4304
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          example: 51.1282
+      required:
+      - longitude
+      - latitude
+    User:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          pattern: ^[0-9a-fA-F]{24}$
+          example: 507f1f77bcf86cd799439011
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        role:
+          type: string
+          enum:
+          - user
+          - admin
+        preferred_categories:
+          type: array
+          items:
+            type: string
+            enum:
+            - cafe
+            - park
+            - library
+            - coworking
+            - attraction
+          maxItems: 5
+          uniqueItems: true
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-11-07T10:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-11-07T10:00:00Z'
+      required:
+      - id
+      - email
+      - display_name
+      - role
+      - preferred_categories
+      - created_at
+      - updated_at
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 3
+          maxLength: 254
+        password:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 72
+          description: 12?72 UTF-8 bytes, not Unicode characters. The original password is not trimmed
+            or normalized.
+          x-minBytes: 12
+          x-maxBytes: 72
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        preferred_categories:
+          type: array
+          items:
+            type: string
+            enum:
+            - cafe
+            - park
+            - library
+            - coworking
+            - attraction
+          maxItems: 5
+          uniqueItems: true
+      required:
+      - email
+      - password
+      - display_name
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+      required:
+      - email
+      - password
+    ProfilePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        preferred_categories:
+          type: array
+          items:
+            type: string
+            enum:
+            - cafe
+            - park
+            - library
+            - coworking
+            - attraction
+          maxItems: 5
+          uniqueItems: true
+      minProperties: 1
+      description: At least one property. Omission preserves the value; null is forbidden. Empty array
+        clears preferences.
+    PlaceCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        category:
+          type: string
+          enum:
+          - cafe
+          - park
+          - library
+          - coworking
+          - attraction
+        tags:
+          type: array
+          items:
+            type: string
+            pattern: ^[a-z0-9][a-z0-9_-]{0,31}$
+          maxItems: 20
+          uniqueItems: true
+          example:
+          - quiet
+          - wifi
+        address:
+          type: string
+          minLength: 1
+          maxLength: 300
+        location:
+          $ref: '#/components/schemas/Coordinates'
+      required:
+      - name
+      - description
+      - category
+      - address
+      - location
+    PlacePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        category:
+          type: string
+          enum:
+          - cafe
+          - park
+          - library
+          - coworking
+          - attraction
+        tags:
+          type: array
+          items:
+            type: string
+            pattern: ^[a-z0-9][a-z0-9_-]{0,31}$
+          maxItems: 20
+          uniqueItems: true
+          example:
+          - quiet
+          - wifi
+        address:
+          type: string
+          minLength: 1
+          maxLength: 300
+        location:
+          $ref: '#/components/schemas/Coordinates'
+      required:
+      - expected_version
+      minProperties: 2
+      description: expected_version plus at least one writable property. Null is forbidden; location must
+        contain both coordinates. Successful updates increment version, including equal-value updates.
+    Place:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          pattern: ^[0-9a-fA-F]{24}$
+          example: 507f1f77bcf86cd799439011
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        category:
+          type: string
+          enum:
+          - cafe
+          - park
+          - library
+          - coworking
+          - attraction
+        tags:
+          type: array
+          items:
+            type: string
+            pattern: ^[a-z0-9][a-z0-9_-]{0,31}$
+          maxItems: 20
+          uniqueItems: true
+          example:
+          - quiet
+          - wifi
+        address:
+          type: string
+          minLength: 1
+          maxLength: 300
+        location:
+          $ref: '#/components/schemas/Coordinates'
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-11-07T10:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-11-07T10:00:00Z'
+        distance_m:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+          description: Spherical distance in meters for geographic search; null elsewhere.
+      required:
+      - id
+      - name
+      - description
+      - category
+      - tags
+      - address
+      - location
+      - version
+      - created_at
+      - updated_at
+      - distance_m
+    Category:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum:
+          - cafe
+          - park
+          - library
+          - coworking
+          - attraction
+        name:
+          type: string
+      required:
+      - code
+      - name
+    State:
+      type: object
+      additionalProperties: false
+      properties:
+        place_id:
+          type: string
+          pattern: ^[0-9a-fA-F]{24}$
+          example: 507f1f77bcf86cd799439011
+        favorite:
+          type: boolean
+        favorited_at:
+          type: string
+          format: date-time
+          example: '2026-11-07T10:00:00Z'
+          nullable: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-11-07T10:00:00Z'
+          nullable: true
+      required:
+      - place_id
+      - favorite
+      - favorited_at
+      - rating
+      - updated_at
+    Favorite:
+      type: object
+      additionalProperties: false
+      properties:
+        place:
+          $ref: '#/components/schemas/Place'
+        favorited_at:
+          type: string
+          format: date-time
+          example: '2026-11-07T10:00:00Z'
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+      required:
+      - place
+      - favorited_at
+      - rating
+    RatingRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+      required:
+      - rating
+    InteractionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        event_key:
+          type: string
+          format: uuid
+        place_id:
+          type: string
+          pattern: ^[0-9a-fA-F]{24}$
+          example: 507f1f77bcf86cd799439011
+        type:
+          type: string
+          enum:
+          - view
+          - select
+      required:
+      - event_key
+      - place_id
+      - type
+    Interaction:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          pattern: ^[0-9a-fA-F]{24}$
+          example: 507f1f77bcf86cd799439011
+        event_key:
+          type: string
+          format: uuid
+        place_id:
+          type: string
+          pattern: ^[0-9a-fA-F]{24}$
+          example: 507f1f77bcf86cd799439011
+        type:
+          type: string
+          enum:
+          - view
+          - select
+          - favorite_added
+          - favorite_removed
+          - rating_set
+          - rating_removed
+        previous_rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        occurred_at:
+          type: string
+          format: date-time
+          example: '2026-11-07T10:00:00Z'
+      required:
+      - id
+      - event_key
+      - place_id
+      - type
+      - previous_rating
+      - rating
+      - occurred_at
+    Pagination:
+      type: object
+      additionalProperties: false
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        offset:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        has_more:
+          type: boolean
+      required:
+      - limit
+      - offset
+      - has_more
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  field:
+                    type: string
+                  reason:
+                    type: string
+                required:
+                - field
+                - reason
+            request_id:
+              type: string
+              format: uuid
+          required:
+          - code
+          - message
+          - details
+          - request_id
+      required:
+      - error
+    UserResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          $ref: '#/components/schemas/User'
+      required:
+      - data
+    PlaceResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          $ref: '#/components/schemas/Place'
+      required:
+      - data
+    StateResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          $ref: '#/components/schemas/State'
+      required:
+      - data
+    InteractionResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          $ref: '#/components/schemas/Interaction'
+      required:
+      - data
+    PlaceList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Place'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+      - data
+      - pagination
+    FavoriteList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Favorite'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+      - data
+      - pagination
+    InteractionList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interaction'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required:
+      - data
+      - pagination
+    CategoryList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+      required:
+      - data
+  responses:
+    Error400:
+      description: Malformed JSON, unknown/repeated field or query, or malformed identifier/number.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: BAD_REQUEST
+              message: Malformed JSON, unknown/repeated field or query, or malformed identifier/number.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error401:
+      description: Missing or expired session. Login uses INVALID_CREDENTIALS for an incorrect email or
+        password.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: UNAUTHENTICATED
+              message: Missing or expired session. Login uses INVALID_CREDENTIALS for an incorrect email
+                or password.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error403:
+      description: Missing permissions, or CSRF_REJECTED for invalid Origin/custom header.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: FORBIDDEN
+              message: Missing permissions, or CSRF_REJECTED for invalid Origin/custom header.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error404:
+      description: Resource is missing or unavailable after soft deletion.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: NOT_FOUND
+              message: Resource is missing or unavailable after soft deletion.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error409:
+      description: EMAIL_ALREADY_EXISTS, VERSION_CONFLICT, or IDEMPOTENCY_CONFLICT depending on operation.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: VERSION_CONFLICT
+              message: EMAIL_ALREADY_EXISTS, VERSION_CONFLICT, or IDEMPOTENCY_CONFLICT depending on operation.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error413:
+      description: Request body exceeds 64 KiB.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: PAYLOAD_TOO_LARGE
+              message: Request body exceeds 64 KiB.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error415:
+      description: A JSON body requires application/json.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: UNSUPPORTED_MEDIA_TYPE
+              message: A JSON body requires application/json.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error422:
+      description: A parsed value violates domain validation.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: A parsed value violates domain validation.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error429:
+      description: Rate limit exceeded. Retry-After specifies seconds.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+          description: Delay in seconds.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: RATE_LIMITED
+              message: Rate limit exceeded. Retry-After specifies seconds.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error500:
+      description: Unexpected error; no database details or secrets are exposed.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: Unexpected error; no database details or secrets are exposed.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
+    Error503:
+      description: Database unavailable or operation could not complete before its deadline.
+      headers:
+        X-Request-ID:
+          schema:
+            type: string
+            format: uuid
+          description: Request correlation identifier.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: SERVICE_UNAVAILABLE
+              message: Database unavailable or operation could not complete before its deadline.
+              details: []
+              request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4

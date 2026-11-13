@@ -5,3 +5,9 @@ bin
 tmp
 coverage
 *.test
+web/node_modules
+web/dist
+web/test-results
+web/playwright-report
+web/coverage
+*.tsbuildinfo

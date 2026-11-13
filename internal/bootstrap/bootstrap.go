@@ -15,6 +15,7 @@ import (
 	"geo-assist/internal/platform/config"
 	web "geo-assist/internal/platform/httpserver"
 	"geo-assist/internal/platform/security"
+	"geo-assist/internal/platform/webui"
 	app "geo-assist/internal/shared/application"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -28,7 +29,7 @@ func Router(cfg config.Config, db *mongo.Database) *gin.Engine {
 	_ = r.SetTrustedProxies(nil)
 	r.HandleMethodNotAllowed = true
 	r.Use(web.Middleware(cfg.Origin))
-	r.NoRoute(func(c *gin.Context) { web.Fail(c, app.E(404, "NOT_FOUND", "Route not found")) })
+	r.NoRoute(webui.Handler(cfg.WebDir))
 	r.NoMethod(func(c *gin.Context) { web.Fail(c, app.E(405, "METHOD_NOT_ALLOWED", "Method not allowed")) })
 	r.GET("/health/live", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 	r.GET("/health/ready", func(c *gin.Context) {

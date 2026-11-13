@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -11,10 +12,23 @@ import (
 type Config struct {
 	Env, HTTPAddr, Origin, MongoURI, Database string
 	CookieSecure, AutoSeed                    bool
+	WebDir                                    string
 }
 
 func Load() (Config, error) {
 	c := Config{Env: get("APP_ENV", "development"), HTTPAddr: get("HTTP_ADDR", ":8080"), Origin: get("APP_ORIGIN", "http://localhost:8080"), MongoURI: get("MONGO_URI", "mongodb://localhost:27018/?replicaSet=rs0&directConnection=true"), Database: get("MONGO_DATABASE", "geoassist")}
+	c.WebDir = get("WEB_DIR", "")
+	if c.WebDir != "" {
+		root, e := filepath.Abs(c.WebDir)
+		if e != nil {
+			return c, fmt.Errorf("invalid WEB_DIR: %w", e)
+		}
+		info, e := os.Stat(filepath.Join(root, "index.html"))
+		if e != nil || info.IsDir() {
+			return c, fmt.Errorf("WEB_DIR must contain index.html")
+		}
+		c.WebDir = root
+	}
 	var err error
 	c.CookieSecure, err = strconv.ParseBool(get("COOKIE_SECURE", "false"))
 	if err != nil {

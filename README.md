@@ -1,6 +1,6 @@
 # GeoAssist
 
-Бэкенд Assignment #6: каталог мест в Астане, геопоиск, профили, избранное, оценки и история действий. Go + Gin + MongoDB, модульный монолит с Clean Architecture. Веб и collaborative filtering запланированы на Final Project.
+Каталог мест в Астане: поиск на карте, профили, избранное, оценки и история действий. Go + Gin + MongoDB, модульный монолит с Clean Architecture. Веб-интерфейс на React + TypeScript покрывает весь текущий бизнес-API, включая управление местами для администратора. Сайт, API и MongoDB запускаются через Docker Compose. Следующий этап — collaborative filtering для Final Project.
 
 ## Запуск
 
@@ -15,6 +15,7 @@ Invoke-RestMethod http://localhost:8080/health/ready
 
 Первый запуск скачивает образы, собирает приложение, ждёт MongoDB, инициализирует replica set `rs0`, создаёт схему и индексы, импортирует демоданные. API начинает принимать запросы после успешного импорта. Health должен вернуть `{"status":"ready"}`.
 
+- **Сайт: [http://localhost:8080](http://localhost:8080).**
 - API: `http://localhost:8080/api/v1`.
 - MongoDB: `localhost:27018` (порт 27017 был занят существующей службой).
 - Остановка с сохранением данных: `docker compose down`.
@@ -35,6 +36,35 @@ Invoke-RestMethod http://localhost:8080/health/ready
 Все данные и маркер `astana-demo-v1` в `app_meta` импортируются одной транзакцией. Ошибка откатывает весь импорт. Повторный запуск при наличии маркера пропускает seed: нет дубликатов, изменений паролей или перезаписи пользовательских правок. Для непустой базы без маркера отключите `AUTO_SEED` либо выберите отдельную пустую базу. Автоматического reset/drop нет.
 
 Compose предназначен для локальной разработки: порты API и MongoDB доступны только на loopback. Демоаккаунты не предназначены для опубликованного приложения.
+
+## Веб-интерфейс
+
+Гость может искать места по началу названия, категории, тегам и расстоянию от точки, просматривать карточки и карту. После входа доступны профиль, избранное, оценки 1–5, выбор места и история действий. У администратора появляется раздел «Управление»: создание, редактирование и удаление мест с проверкой версии. Регистрация создаёт обычного пользователя; после неё нужно войти.
+
+Открывайте сайт именно через `localhost:8080`: этот адрес должен совпадать с `APP_ORIGIN`. Cookie и CSRF отправляются браузером автоматически, вводить токены не нужно. Геолокация запрашивается только кнопкой «Моё местоположение»; можно ввести координаты или выбрать точку на карте. Карта показывает ту же страницу результатов, что и список. Внешняя подложка OpenStreetMap требует интернет, а список и формы работают при её недоступности.
+
+[Запуск, устройство frontend и проверки](docs/18-frontend-guide.md).
+
+## Разработка frontend
+
+Для изменения интерфейса без пересборки Docker нужен Node.js 22.21.0 (версия закреплена в `web/.node-version`). В корне проекта:
+
+```powershell
+$env:APP_ORIGIN = 'http://localhost:5173'
+docker compose up -d --force-recreate api
+cd web
+npm ci
+npm run dev
+```
+
+Откройте `http://localhost:5173`. Vite проксирует `/api` в Go на 8080 и сохраняет Origin браузера. Одновременно используйте только один origin для изменяющих запросов. Для возврата к готовому сайту остановите Vite, перейдите в корень и выполните:
+
+```powershell
+$env:APP_ORIGIN = 'http://localhost:8080'
+docker compose up --build -d
+```
+
+В контейнере Node не запускается: он нужен только на этапе сборки. Go раздаёт готовый `web/dist` из `/app/web`; API и сайт имеют один origin.
 
 ## Postman
 
@@ -90,16 +120,17 @@ create-admin запрашивает пароль скрытым вводом и 
 | MONGO_DATABASE | geoassist |
 | AUTO_SEED | true |
 | COOKIE_SECURE | false |
+| WEB_DIR | пусто для локального Go; `/app/web` в Docker |
 
 Compose автоматически читает `.env`; шаблон — [.env.example](.env.example). В контейнере API используется внутренний адрес `mongo:27017`. Production требует HTTPS origin, `COOKIE_SECURE=true`, `AUTO_SEED=false`; текущий Compose является локальным стендом.
 
 ## Проверки
 
 ```powershell
-go test ./...
-go vet ./...
+go test ./cmd/... ./internal/... ./tests/...
+go vet ./cmd/... ./internal/... ./tests/...
 $env:TEST_MONGO_URI = 'mongodb://localhost:27018/?replicaSet=rs0&directConnection=true'
-go test ./... -count=1
+go test ./cmd/... ./internal/... ./tests/... -count=1
 ```
 
 Без TEST_MONGO_URI интеграционные тесты явно пропускаются. С ним они создают отдельные базы `geoassist_test_*` и очищают только их. Проверяются авторизация, роли, geo CRUD, версии, транзакции, гонки, дедупликация и seed. Рабочая база не используется.
@@ -116,6 +147,8 @@ npx --yes newman@6.2.1 run api/postman/GeoAssist.postman_collection.json -e api/
 
 `cmd/` — команды; `internal/identity`, `catalog`, `activity` — бизнес-модули; `internal/bootstrap` — их сборка; `platform` — инфраструктура; `shared` — общие типы; `api` — OpenAPI/Postman; `deploy` — Dockerfile; `tests/integration` — проверки на MongoDB.
 
+`web/src/app` — роуты, сессия, общий интерфейс; `pages` — экраны; `modules` — identity/catalog/activity; `shared` — API-клиент, типы из OpenAPI, формы и карта; `web/e2e` — браузерные тесты с настоящим API.
+
 В каждом бизнес-модуле разделены domain, application, adapters/http и adapters/mongo. HTTP DTO не используются как BSON-документы.
 
 - [План](docs/PLAN.md)
@@ -130,3 +163,11 @@ npx --yes newman@6.2.1 run api/postman/GeoAssist.postman_collection.json -e api/
 - [Результаты проверки](docs/09-verification.md)
 - [Туториал: устройство проекта и демонстрация API](docs/10-tutorial.md)
 - [Отчёт Assignment #6 с местами для скриншотов](docs/11-assignment-6-report.md)
+- [Frontend: решения и общий план](docs/12-frontend-plan.md)
+- [Frontend: архитектура, папки и сборка с Go](docs/13-frontend-architecture.md)
+- [Frontend: экраны и пользовательские сценарии](docs/14-frontend-screens.md)
+- [Frontend: API, сессии, ошибки и состояние](docs/15-frontend-api-state.md)
+- [Frontend: карта и геопоиск](docs/16-frontend-map-search.md)
+- [Frontend: этапы реализации и приёмка](docs/17-frontend-delivery.md)
+- [Frontend: руководство по готовому сайту](docs/18-frontend-guide.md)
+- [Frontend: результаты проверки](docs/19-frontend-verification.md)

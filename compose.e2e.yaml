@@ -1,0 +1,13 @@
+# Use together with compose.yaml and -p geoassist-e2e. Separate ports and volume.
+services:
+  mongo:
+    ports: !override
+      - "127.0.0.1:27019:27017"
+  api:
+    image: geoassist-api:latest
+    environment:
+      APP_ORIGIN: http://localhost:8081
+      MONGO_DATABASE: geoassist_e2e
+      AUTO_SEED: "true"
+    ports: !override
+      - "127.0.0.1:8081:8080"

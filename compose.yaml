@@ -28,6 +28,7 @@ services:
     environment:
       APP_ENV: development
       HTTP_ADDR: ":8080"
+      WEB_DIR: /app/web
       APP_ORIGIN: "${APP_ORIGIN:-http://localhost:8080}"
       MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0
       MONGO_DATABASE: "${MONGO_DATABASE:-geoassist}"

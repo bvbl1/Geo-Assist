@@ -6,6 +6,8 @@ import (
 	"geo-assist/internal/bootstrap"
 	"geo-assist/internal/platform/config"
 	"geo-assist/internal/platform/mongostore"
+	recmongo "geo-assist/internal/recommendation/adapters/mongo"
+	rec "geo-assist/internal/recommendation/application"
 	"log/slog"
 	"net/http"
 	"os"
@@ -48,7 +50,16 @@ func run() error {
 			return err
 		}
 	}
-	server := &http.Server{Addr: cfg.HTTPAddr, Handler: bootstrap.Router(cfg, db), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
+	recCfg, err := rec.ConfigFromEnv()
+	if err != nil {
+		return err
+	}
+	recommendations := rec.New(recmongo.New(db), recCfg)
+	if err = recommendations.Start(ctx); err != nil {
+		return err
+	}
+	defer recommendations.Close()
+	server := &http.Server{Addr: cfg.HTTPAddr, Handler: bootstrap.Router(cfg, db, recommendations), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second}
 	result := make(chan error, 1)
 	go func() {
 		slog.Info("api ready", "address", cfg.HTTPAddr, "origin", cfg.Origin)

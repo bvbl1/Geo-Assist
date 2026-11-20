@@ -49,6 +49,9 @@ export default function AdminPlaces() {
   }
   return (
     <>
+      <p>
+        <Link to="/admin/recommendations">Модель рекомендаций →</Link>
+      </p>
       <div className="heading-actions">
         <PageHeading eyebrow="АДМИНИСТРАТОР" title="Управление местами">
           Каталог Астаны: создание, редактирование и удаление.

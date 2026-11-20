@@ -35,12 +35,12 @@ func eventKey(key string) string {
 	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("geoassist:"+key)).String()
 }
 
-// Seed installs a complete synthetic Astana dataset exactly once. Existing data is never overwritten.
+// Seed installs the synthetic dataset once, then upgrades untouched legacy demo locations.
 // A metadata marker and all demo records commit atomically, including across interrupted startups.
 func Seed(ctx context.Context, db *mongo.Database) (bool, error) {
 	meta := db.Collection("app_meta")
 	if err := meta.FindOne(ctx, bson.M{"_id": SeedVersion}).Err(); err == nil {
-		return false, nil
+		return false, upgradeDemoLocations(ctx, db)
 	} else if err != mongo.ErrNoDocuments {
 		return false, err
 	}
@@ -89,7 +89,7 @@ func Seed(ctx context.Context, db *mongo.Database) (bool, error) {
 				return nil, fmt.Errorf("seed %s: %w", batch.name, e)
 			}
 		}
-		_, e := meta.InsertOne(tx, bson.M{"_id": SeedVersion, "created_at": time.Now().UTC(), "city": "Astana", "synthetic": true})
+		_, e := meta.InsertOne(tx, bson.M{"_id": SeedVersion, "created_at": time.Now().UTC(), "city": "Astana", "synthetic": true, "locations_version": 2})
 		return true, e
 	}, options.Transaction().SetReadConcern(readconcern.Snapshot()).SetWriteConcern(writeconcern.Majority()))
 	if err != nil {
@@ -131,9 +131,8 @@ func demoDocuments(adminHash, userHash string) (users, places, states, events []
 		} else {
 			tags = append(tags, "outdoor")
 		}
-		lng := 71.4304 + float64(i%10-5)*0.004
-		lat := 51.1282 + float64(i/10-5)*0.003
-		places = append(places, bson.M{"_id": SeedID("place", i), "schema_version": int32(1), "created_by": admin, "name": name, "name_search": strings.ToLower(norm.NFC.String(name)), "description": "Синтетическое учебное место в Астане. Название и характеристики вымышлены.", "category": cats[category], "tags": tags, "address": fmt.Sprintf("Астана, учебная точка %02d (не реальный адрес)", i+1), "location": bson.M{"type": "Point", "coordinates": []float64{lng, lat}}, "version": int64(1), "created_at": at, "updated_at": at, "deleted_at": nil})
+		location := demoStreetLocations[i]
+		places = append(places, bson.M{"_id": SeedID("place", i), "schema_version": int32(1), "created_by": admin, "name": name, "name_search": strings.ToLower(norm.NFC.String(name)), "description": "Синтетическое учебное место в Астане. Название и характеристики вымышлены.", "category": cats[category], "tags": tags, "address": demoAddress(i), "location": bson.M{"type": "Point", "coordinates": location.Coordinates}, "version": int64(1), "created_at": at, "updated_at": at, "deleted_at": nil})
 	}
 	count := 0
 	for u := 1; u <= 50; u++ {

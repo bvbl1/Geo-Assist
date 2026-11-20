@@ -26,6 +26,9 @@ export function PlaceActions({
     onSuccess: (data) => {
       client.setQueryData(key, data);
       void client.invalidateQueries({
+        queryKey: ["user", userId, "recommendations"],
+      });
+      void client.invalidateQueries({
         queryKey: ["user", userId, "favorites"],
       });
       void client.invalidateQueries({ queryKey: ["user", userId, "history"] });

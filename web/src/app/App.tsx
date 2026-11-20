@@ -11,6 +11,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import {
   Compass,
+  Sparkles,
   Heart,
   History,
   LogOut,
@@ -21,6 +22,10 @@ import {
 import { useSession } from "./session";
 import { identity } from "../modules/identity/api";
 import { Empty, ErrorBox, Loading } from "../shared/ui";
+const Recommendations = lazy(() => import("../pages/Recommendations"));
+const AdminRecommendations = lazy(
+  () => import("../pages/AdminRecommendations"),
+);
 const Explore = lazy(() => import("../pages/Explore"));
 const Place = lazy(() => import("../pages/Place"));
 const Auth = lazy(() => import("../pages/Auth"));
@@ -126,6 +131,10 @@ export default function App() {
             </NavLink>
             {session.user && (
               <>
+                <NavLink to="/recommendations">
+                  <Sparkles size={17} />
+                  <span>Для вас</span>
+                </NavLink>
                 <NavLink to="/favorites">
                   <Heart size={17} />
                   <span>Избранное</span>
@@ -186,6 +195,22 @@ export default function App() {
           <Suspense fallback={<Loading />}>
             <Routes>
               <Route path="/" element={<Navigate to="/explore" replace />} />
+              <Route
+                path="/recommendations"
+                element={
+                  <Guard>
+                    <Recommendations key={session.user?.id} />
+                  </Guard>
+                }
+              />
+              <Route
+                path="/admin/recommendations"
+                element={
+                  <Guard admin>
+                    <AdminRecommendations />
+                  </Guard>
+                }
+              />
               <Route path="/explore" element={<Explore />} />
               <Route
                 path="/places/:id"

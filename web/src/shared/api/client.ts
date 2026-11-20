@@ -81,6 +81,13 @@ export async function request<T>(
 export function message(error: unknown): string {
   if (error instanceof ApiError) {
     const messages: Record<string, string> = {
+      MODEL_NOT_READY:
+        "Модель ещё готовится. Попробуйте через несколько секунд.",
+      MODEL_BUILD_IN_PROGRESS: "Пересчёт уже выполняется.",
+      MODEL_BUILD_COOLDOWN: "Повторный пересчёт доступен через минуту.",
+      MODEL_UNAVAILABLE: "Сервис рекомендаций временно недоступен.",
+      MODEL_CAPACITY_EXCEEDED:
+        "Превышен допустимый размер каталога рекомендаций.",
       INVALID_CREDENTIALS: "Неверный email или пароль.",
       UNAUTHENTICATED: "Сессия истекла. Войдите снова.",
       EMAIL_ALREADY_EXISTS: "Этот email уже зарегистрирован.",

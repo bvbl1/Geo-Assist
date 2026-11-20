@@ -66,3 +66,67 @@ func TestSeedRollsBackEntireImport(t *testing.T) {
 		t.Fatalf("retry created=%v err=%v", created, err)
 	}
 }
+
+func TestSeedUpgradesLegacyLocationsWithoutChangingUserData(t *testing.T) {
+	f := newActivityFixture(t)
+	if _, err := mongostore.Seed(f.ctx, f.db); err != nil {
+		t.Fatal(err)
+	}
+	// Reconstruct an old installation, with one edited and one deleted place.
+	for i := 0; i < 100; i++ {
+		old := []float64{71.4304 + float64(i%10-5)*.004, 51.1282 + float64(i/10-5)*.003}
+		set := bson.M{"location.coordinates": old}
+		if i == 0 {
+			set["name"] = "User edited place"
+			set["version"] = int64(2)
+		}
+		if i == 1 {
+			set["deleted_at"] = time.Now()
+			set["version"] = int64(2)
+		}
+		if _, err := f.db.Collection("places").UpdateOne(f.ctx, bson.M{"_id": mongostore.SeedID("place", i)}, bson.M{"$set": set}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := f.db.Collection("app_meta").UpdateOne(f.ctx, bson.M{"_id": mongostore.SeedVersion}, bson.M{"$unset": bson.M{"locations_version": ""}}); err != nil {
+		t.Fatal(err)
+	}
+	if created, err := mongostore.Seed(f.ctx, f.db); err != nil || created {
+		t.Fatalf("upgrade: created=%v err=%v", created, err)
+	}
+	for i := 0; i < 100; i++ {
+		var p struct {
+			Location struct {
+				Coordinates []float64 `bson:"coordinates"`
+			} `bson:"location"`
+			Version int64  `bson:"version"`
+			Name    string `bson:"name"`
+		}
+		if err := f.db.Collection("places").FindOne(f.ctx, bson.M{"_id": mongostore.SeedID("place", i)}).Decode(&p); err != nil {
+			t.Fatal(err)
+		}
+		oldLon := 71.4304 + float64(i%10-5)*.004
+		if i < 2 && p.Location.Coordinates[0] != oldLon {
+			t.Fatal("changed user-edited place")
+		}
+		if i >= 2 && (p.Location.Coordinates[0] == oldLon || p.Version != 2) {
+			t.Fatalf("legacy place %d not upgraded", i)
+		}
+		if i == 0 && p.Name != "User edited place" {
+			t.Fatal("overwrote user name")
+		}
+	}
+	if _, err := mongostore.Seed(f.ctx, f.db); err != nil {
+		t.Fatal(err)
+	}
+	n, err := f.db.Collection("places").CountDocuments(f.ctx, bson.M{"version": int64(2)})
+	if err != nil || n != 100 {
+		t.Fatal("upgrade was not idempotent")
+	}
+	for collection, want := range map[string]int64{"users": 51, "user_places": 400, "interactions": 1200} {
+		n, e := f.db.Collection(collection).CountDocuments(f.ctx, bson.M{})
+		if e != nil || n != want {
+			t.Fatalf("changed %s count", collection)
+		}
+	}
+}

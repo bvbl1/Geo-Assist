@@ -1372,3 +1372,52 @@ dialog .actions {
     scroll-behavior: auto !important;
   }
 }
+
+.recommendation-filters {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.recommendation-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+}
+.recommendation-checkbox input {
+  width: auto;
+}
+.recommendation-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px;
+  border-radius: 18px;
+  background: #eaf1e8;
+  color: #254b40;
+  margin: 24px 0;
+}
+.recommendation-summary svg {
+  flex-shrink: 0;
+}
+.recommendation-summary p {
+  margin: 8px 0;
+}
+.recommendation-model {
+  padding: 28px;
+}
+.recommendation-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+}
+.recommendation-stats dt {
+  color: var(--muted);
+  font-size: 14px;
+}
+.recommendation-stats dd {
+  margin: 6px 0 0;
+  font-weight: 600;
+}
+.model-id {
+  overflow-wrap: anywhere;
+}

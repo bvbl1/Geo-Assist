@@ -325,6 +325,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * getRecommendations
+         * @description Personalized item-based Jaccard recommendations from current favorites. Filters are applied before limit. No positive CF matches uses live popularity. First build returns 503 with Retry-After: 5.
+         */
+        get: operations["getRecommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/recommendations/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * getRecommendationStatus
+         * @description Administrator only. Model version, loaded version and build status. Poll requested_attempt for a specific build.
+         */
+        get: operations["getRecommendationStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/recommendations/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * rebuildRecommendations
+         * @description Administrator only. No request body. Detached background build. Unchanged source skips publication. One build at a time (409), manual cooldown 60 seconds (429).
+         */
+        post: operations["rebuildRecommendations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -551,6 +611,76 @@ export interface components {
         };
         CategoryList: {
             data: components["schemas"]["Category"][];
+        };
+        Recommendation: {
+            place: components["schemas"]["Place"];
+            /** @description Sum of Jaccard similarities, or popularity count for fallback. Not a probability. */
+            score: number;
+            /** @enum {string} */
+            reason: "similar_to_favorites" | "popular" | "popular_nearby";
+        };
+        RecommendationMeta: {
+            /** @enum {string} */
+            algorithm: "item_cf_jaccard" | "popularity";
+            model_id: string;
+            /** Format: date-time */
+            model_built_at: string;
+            /** Format: date-time */
+            source_checked_at: string | null;
+            refresh_in_progress: boolean;
+            fallback_used: boolean;
+        };
+        RecommendationResponse: {
+            data: components["schemas"]["Recommendation"][];
+            meta: components["schemas"]["RecommendationMeta"];
+        };
+        RecommendationModel: {
+            id: string;
+            algorithm: string;
+            builder_impl: string;
+            trigger: string;
+            source_fingerprint: string;
+            content_checksum: string;
+            algorithm_version: number;
+            item_count: number;
+            edge_count: number;
+            pair_count: number;
+            model_bytes: number;
+            duration_ms: number;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            finished_at: string | null;
+            /** Format: date-time */
+            built_at: string | null;
+            /** Format: date-time */
+            source_read_started_at: string | null;
+            /** Format: date-time */
+            source_read_finished_at: string | null;
+            /** @enum {string} */
+            status: "building" | "ready" | "skipped" | "failed";
+            error_summary?: string;
+            reused_model_id?: string;
+        };
+        RecommendationStatus: {
+            active: components["schemas"]["RecommendationModel"] | null;
+            loaded_model_id: string;
+            last_attempt: components["schemas"]["RecommendationModel"] | null;
+            requested_attempt: components["schemas"]["RecommendationModel"] | null;
+            /** Format: date-time */
+            last_checked_at: string | null;
+            /** Format: date-time */
+            next_check_at: string | null;
+        };
+        RecommendationStatusResponse: {
+            data: components["schemas"]["RecommendationStatus"];
+        };
+        RecommendationBuildResponse: {
+            data: {
+                build_id: string;
+                /** @enum {string} */
+                status: "building";
+            };
         };
     };
     responses: {
@@ -1687,6 +1817,107 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    getRecommendations: {
+        parameters: {
+            query?: {
+                limit?: number;
+                category?: components["parameters"]["Category"];
+                /** @description Repeat tag for multiple values; all must match. Other scalar parameters cannot repeat. */
+                tag?: components["parameters"]["Tag"];
+                /** @description Must be supplied together with latitude and radius_m. */
+                longitude?: components["parameters"]["Longitude"];
+                /** @description Must be supplied together with longitude and radius_m. */
+                latitude?: components["parameters"]["Latitude"];
+                /** @description Spherical radius in meters, not driving distance. All three geo parameters are required together. */
+                radius_m?: components["parameters"]["Radius"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecommendationResponse"];
+                };
+            };
+            400: components["responses"]["Error400"];
+            401: components["responses"]["Error401"];
+            403: components["responses"]["Error403"];
+            422: components["responses"]["Error422"];
+            500: components["responses"]["Error500"];
+            503: components["responses"]["Error503"];
+        };
+    };
+    getRecommendationStatus: {
+        parameters: {
+            query?: {
+                build_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecommendationStatusResponse"];
+                };
+            };
+            400: components["responses"]["Error400"];
+            401: components["responses"]["Error401"];
+            403: components["responses"]["Error403"];
+            422: components["responses"]["Error422"];
+            500: components["responses"]["Error500"];
+            503: components["responses"]["Error503"];
+        };
+    };
+    rebuildRecommendations: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Must exactly equal APP_ORIGIN (scheme, host and port); required for every mutation, including login and logout.
+                 * @example http://localhost:8080
+                 */
+                Origin: components["parameters"]["Origin"];
+                /** @description Non-secret custom header; requests without this marker are rejected. */
+                "X-GeoAssist-CSRF": components["parameters"]["CSRF"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecommendationBuildResponse"];
+                };
+            };
+            400: components["responses"]["Error400"];
+            401: components["responses"]["Error401"];
+            403: components["responses"]["Error403"];
+            409: components["responses"]["Error409"];
+            422: components["responses"]["Error422"];
+            429: components["responses"]["Error429"];
+            500: components["responses"]["Error500"];
+            503: components["responses"]["Error503"];
         };
     };
 }

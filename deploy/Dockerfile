@@ -18,6 +18,7 @@ COPY internal/ ./internal/
 RUN CGO_ENABLED=0 go build -trimpath -o /out/api ./cmd/api && \
     CGO_ENABLED=0 go build -trimpath -o /out/migrate ./cmd/migrate && \
     CGO_ENABLED=0 go build -trimpath -o /out/seed ./cmd/seed && \
+    CGO_ENABLED=0 go build -trimpath -o /out/rebuild-model ./cmd/rebuild-model && \
     CGO_ENABLED=0 go build -trimpath -o /out/create-admin ./cmd/create-admin
 FROM alpine:3.22.1
 RUN addgroup -S app && adduser -S -G app app

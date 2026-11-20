@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
-  title: GeoAssist Assignment 6 API
-  version: 1.0.0
-  description: 'Go modular monolith with MongoDB. Assignment 6 covers identity, catalog, geospatial search
-    and interactions. Recommendations and UI belong to Final Project and are not exposed here. Unknown
-    request fields/query parameters and repeated scalar query parameters are rejected. Every mutation
-    needs matching Origin and X-GeoAssist-CSRF: 1. JSON body limit: 64 KiB. Personal/auth responses are
-    Cache-Control: no-store. Demo coordinates use Astana.'
+  title: GeoAssist API
+  version: 1.1.0
+  description: 'Go modular monolith with MongoDB. Assignment 6 covers identity, catalog, geospatial search and interactions.
+    Final Project adds item-based collaborative recommendations, model administration and a web UI. Unknown request
+    fields/query parameters and repeated scalar query parameters are rejected. Every mutation needs matching Origin
+    and X-GeoAssist-CSRF: 1. JSON body limit: 64 KiB. Personal/auth responses are Cache-Control: no-store. Demo
+    coordinates use Astana.'
 servers:
 - url: http://localhost:8080
   description: Local Docker development
@@ -15,6 +15,7 @@ tags:
 - name: Catalog
 - name: Activity
 - name: Health
+- name: Recommendations
 paths:
   /api/v1/auth/register:
     post:
@@ -81,8 +82,8 @@ paths:
       summary: Create a session
       tags:
       - Identity
-      description: Creates a fixed seven-day session and replaces the current browser session. Token is
-        returned only in HttpOnly cookie, never JSON.
+      description: Creates a fixed seven-day session and replaces the current browser session. Token is returned
+        only in HttpOnly cookie, never JSON.
       security: []
       parameters:
       - $ref: '#/components/parameters/Origin'
@@ -108,8 +109,8 @@ paths:
             Set-Cookie:
               schema:
                 type: string
-              description: HttpOnly host-only geoassist_session cookie; SameSite=Lax; Path=/; Secure in
-                HTTPS production. Cleared on logout.
+              description: HttpOnly host-only geoassist_session cookie; SameSite=Lax; Path=/; Secure in HTTPS production.
+                Cleared on logout.
           content:
             application/json:
               schema:
@@ -138,8 +139,8 @@ paths:
       summary: Revoke the current session
       tags:
       - Identity
-      description: No body. Idempotent for missing or expired sessions. CSRF checks still apply. Other
-        sessions remain active.
+      description: No body. Idempotent for missing or expired sessions. CSRF checks still apply. Other sessions
+        remain active.
       security: []
       parameters:
       - $ref: '#/components/parameters/Origin'
@@ -156,8 +157,8 @@ paths:
             Set-Cookie:
               schema:
                 type: string
-              description: HttpOnly host-only geoassist_session cookie; SameSite=Lax; Path=/; Secure in
-                HTTPS production. Cleared on logout.
+              description: HttpOnly host-only geoassist_session cookie; SameSite=Lax; Path=/; Secure in HTTPS production.
+                Cleared on logout.
         '400':
           $ref: '#/components/responses/Error400'
         '403':
@@ -202,8 +203,8 @@ paths:
       summary: Update own profile
       tags:
       - Identity
-      description: Only display_name and preferred_categories can change. Omitted fields are preserved;
-        null is rejected.
+      description: Only display_name and preferred_categories can change. Omitted fields are preserved; null is
+        rejected.
       security:
       - sessionCookie: []
       parameters:
@@ -281,9 +282,9 @@ paths:
       summary: Search active places
       tags:
       - Catalog
-      description: 'All filters use AND. Without geo: normalized name ASC then ID ASC. With geo: distance
-        ASC then ID ASC. Distance is spherical, not a road route. Empty results return data=[]. Pagination
-        is offset-based and not a snapshot.'
+      description: 'All filters use AND. Without geo: normalized name ASC then ID ASC. With geo: distance ASC then
+        ID ASC. Distance is spherical, not a road route. Empty results return data=[]. Pagination is offset-based
+        and not a snapshot.'
       security: []
       parameters:
       - $ref: '#/components/parameters/Q'
@@ -320,8 +321,8 @@ paths:
       summary: Create a place (admin)
       tags:
       - Catalog
-      description: Only admin. Tags default to an empty array. IDs, creator, timestamps and initial version=1
-        are server-managed.
+      description: Only admin. Tags default to an empty array. IDs, creator, timestamps and initial version=1 are
+        server-managed.
       security:
       - sessionCookie: []
       parameters:
@@ -413,8 +414,8 @@ paths:
       summary: Partially update a place (admin)
       tags:
       - Catalog
-      description: Only admin. Optimistic locking requires the current expected_version. Reload after
-        VERSION_CONFLICT. Omission preserves fields; null is forbidden.
+      description: Only admin. Optimistic locking requires the current expected_version. Reload after VERSION_CONFLICT.
+        Omission preserves fields; null is forbidden.
       security:
       - sessionCookie: []
       parameters:
@@ -470,8 +471,8 @@ paths:
       summary: Soft-delete a place (admin)
       tags:
       - Catalog
-      description: No body. Preserves history and state. Repeating deletion returns 404; stale active
-        version returns 409.
+      description: No body. Preserves history and state. Repeating deletion returns 404; stale active version returns
+        409.
       security:
       - sessionCookie: []
       parameters:
@@ -510,8 +511,8 @@ paths:
       summary: Read own state for a place
       tags:
       - Activity
-      description: Absent state returns favorite=false and nullable fields=null. Soft-deleted places remain
-        readable here; never-existing place returns 404.
+      description: Absent state returns favorite=false and nullable fields=null. Soft-deleted places remain readable
+        here; never-existing place returns 404.
       security:
       - sessionCookie: []
       parameters:
@@ -545,8 +546,8 @@ paths:
       summary: Add a place to favorites
       tags:
       - Activity
-      description: No body. Place must be active. Setting an existing favorite is a no-op and creates
-        no duplicate event.
+      description: No body. Place must be active. Setting an existing favorite is a no-op and creates no duplicate
+        event.
       security:
       - sessionCookie: []
       parameters:
@@ -621,8 +622,8 @@ paths:
       summary: List own favorites
       tags:
       - Activity
-      description: Only active places, filtered before pagination. Sorted by favorited_at DESC then internal
-        state ID DESC. distance_m=null.
+      description: Only active places, filtered before pagination. Sorted by favorited_at DESC then internal state
+        ID DESC. distance_m=null.
       security:
       - sessionCookie: []
       parameters:
@@ -746,9 +747,9 @@ paths:
       summary: Record a view or selection
       tags:
       - Activity
-      description: Only view/select are client-writable. event_key is a UUID unique per user. Identical
-        replay returns the original event even after place deletion. Reusing the key with another payload
-        returns 409. Server timestamps and owner are not client-controlled.
+      description: Only view/select are client-writable. event_key is a UUID unique per user. Identical replay returns
+        the original event even after place deletion. Reusing the key with another payload returns 409. Server timestamps
+        and owner are not client-controlled.
       security:
       - sessionCookie: []
       parameters:
@@ -817,9 +818,8 @@ paths:
       summary: Read own interaction history
       tags:
       - Activity
-      description: Includes system-generated favorite/rating events and events for soft-deleted places.
-        Sorted occurred_at DESC then ID DESC. Filters AND; a valid but absent place ID returns an empty
-        list.
+      description: Includes system-generated favorite/rating events and events for soft-deleted places. Sorted occurred_at
+        DESC then ID DESC. Filters AND; a valid but absent place ID returns an empty list.
       security:
       - sessionCookie: []
       parameters:
@@ -936,6 +936,119 @@ paths:
                 - status
               example:
                 status: not_ready
+  /api/v1/me/recommendations:
+    get:
+      operationId: getRecommendations
+      summary: getRecommendations
+      description: 'Personalized item-based Jaccard recommendations from current favorites. Filters are applied
+        before limit. No positive CF matches uses live popularity. First build returns 503 with Retry-After: 5.'
+      tags:
+      - Recommendations
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
+      - $ref: '#/components/parameters/Category'
+      - $ref: '#/components/parameters/Tag'
+      - $ref: '#/components/parameters/Longitude'
+      - $ref: '#/components/parameters/Latitude'
+      - $ref: '#/components/parameters/Radius'
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationResponse'
+  /api/v1/admin/recommendations/status:
+    get:
+      operationId: getRecommendationStatus
+      summary: getRecommendationStatus
+      description: Administrator only. Model version, loaded version and build status. Poll requested_attempt for
+        a specific build.
+      tags:
+      - Recommendations
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: build_id
+        in: query
+        schema:
+          type: string
+          pattern: ^[a-fA-F0-9]{24}$
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationStatusResponse'
+  /api/v1/admin/recommendations/rebuild:
+    post:
+      operationId: rebuildRecommendations
+      summary: rebuildRecommendations
+      description: Administrator only. No request body. Detached background build. Unchanged source skips publication.
+        One build at a time (409), manual cooldown 60 seconds (429).
+      tags:
+      - Recommendations
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      - $ref: '#/components/parameters/CSRF'
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationBuildResponse'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '429':
+          $ref: '#/components/responses/Error429'
 components:
   securitySchemes:
     sessionCookie:
@@ -960,8 +1073,8 @@ components:
       schema:
         type: string
       example: http://localhost:8080
-      description: Must exactly equal APP_ORIGIN (scheme, host and port); required for every mutation,
-        including login and logout.
+      description: Must exactly equal APP_ORIGIN (scheme, host and port); required for every mutation, including
+        login and logout.
     CSRF:
       name: X-GeoAssist-CSRF
       in: header
@@ -994,8 +1107,7 @@ components:
         type: string
         minLength: 1
         maxLength: 120
-      description: Normalized prefix of the whole name (NFC, trim, lowercase). Not substring or fuzzy
-        search.
+      description: Normalized prefix of the whole name (NFC, trim, lowercase). Not substring or fuzzy search.
     Category:
       name: category
       in: query
@@ -1050,8 +1162,7 @@ components:
         type: integer
         minimum: 1
         maximum: 50000
-      description: Spherical radius in meters, not driving distance. All three geo parameters are required
-        together.
+      description: Spherical radius in meters, not driving distance. All three geo parameters are required together.
     ExpectedVersion:
       name: expected_version
       in: query
@@ -1162,8 +1273,7 @@ components:
           format: password
           minLength: 1
           maxLength: 72
-          description: 12?72 UTF-8 bytes, not Unicode characters. The original password is not trimmed
-            or normalized.
+          description: 12?72 UTF-8 bytes, not Unicode characters. The original password is not trimmed or normalized.
           x-minBytes: 12
           x-maxBytes: 72
         display_name:
@@ -1220,8 +1330,7 @@ components:
           maxItems: 5
           uniqueItems: true
       minProperties: 1
-      description: At least one property. Omission preserves the value; null is forbidden. Empty array
-        clears preferences.
+      description: At least one property. Omission preserves the value; null is forbidden. Empty array clears preferences.
     PlaceCreate:
       type: object
       additionalProperties: false
@@ -1307,8 +1416,8 @@ components:
       required:
       - expected_version
       minProperties: 2
-      description: expected_version plus at least one writable property. Null is forbidden; location must
-        contain both coordinates. Successful updates increment version, including equal-value updates.
+      description: expected_version plus at least one writable property. Null is forbidden; location must contain
+        both coordinates. Successful updates increment version, including equal-value updates.
     Place:
       type: object
       additionalProperties: false
@@ -1656,6 +1765,155 @@ components:
             $ref: '#/components/schemas/Category'
       required:
       - data
+    Recommendation:
+      type: object
+      required:
+      - place
+      - score
+      - reason
+      properties:
+        place:
+          $ref: '#/components/schemas/Place'
+        score:
+          type: number
+          description: Sum of Jaccard similarities, or popularity count for fallback. Not a probability.
+        reason:
+          type: string
+          enum:
+          - similar_to_favorites
+          - popular
+          - popular_nearby
+    RecommendationMeta:
+      type: object
+      required:
+      - algorithm
+      - model_id
+      - model_built_at
+      - source_checked_at
+      - refresh_in_progress
+      - fallback_used
+      properties:
+        algorithm:
+          type: string
+          enum:
+          - item_cf_jaccard
+          - popularity
+        model_id: &id001
+          type: string
+        model_built_at:
+          type: string
+          format: date-time
+        source_checked_at: &id003
+          type: string
+          format: date-time
+          nullable: true
+        refresh_in_progress:
+          type: boolean
+        fallback_used:
+          type: boolean
+    RecommendationResponse:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+        meta:
+          $ref: '#/components/schemas/RecommendationMeta'
+    RecommendationModel:
+      type: object
+      required:
+      - id
+      - algorithm
+      - builder_impl
+      - trigger
+      - source_fingerprint
+      - content_checksum
+      - algorithm_version
+      - item_count
+      - edge_count
+      - pair_count
+      - model_bytes
+      - duration_ms
+      - started_at
+      - finished_at
+      - built_at
+      - source_read_started_at
+      - source_read_finished_at
+      - status
+      properties:
+        id: *id001
+        algorithm: *id001
+        builder_impl: *id001
+        trigger: *id001
+        source_fingerprint: *id001
+        content_checksum: *id001
+        algorithm_version: &id002
+          type: integer
+        item_count: *id002
+        edge_count: *id002
+        pair_count: *id002
+        model_bytes: *id002
+        duration_ms: *id002
+        started_at: *id003
+        finished_at: *id003
+        built_at: *id003
+        source_read_started_at: *id003
+        source_read_finished_at: *id003
+        status:
+          type: string
+          enum:
+          - building
+          - ready
+          - skipped
+          - failed
+        error_summary: *id001
+        reused_model_id: *id001
+    RecommendationStatus:
+      type: object
+      required:
+      - active
+      - loaded_model_id
+      - last_attempt
+      - requested_attempt
+      - last_checked_at
+      - next_check_at
+      properties:
+        active: &id004
+          allOf:
+          - $ref: '#/components/schemas/RecommendationModel'
+          nullable: true
+        loaded_model_id: *id001
+        last_attempt: *id004
+        requested_attempt: *id004
+        last_checked_at: *id003
+        next_check_at: *id003
+    RecommendationStatusResponse:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/RecommendationStatus'
+    RecommendationBuildResponse:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - build_id
+          - status
+          properties:
+            build_id: *id001
+            status:
+              type: string
+              enum:
+              - building
   responses:
     Error400:
       description: Malformed JSON, unknown/repeated field or query, or malformed identifier/number.
@@ -1676,8 +1934,7 @@ components:
               details: []
               request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
     Error401:
-      description: Missing or expired session. Login uses INVALID_CREDENTIALS for an incorrect email or
-        password.
+      description: Missing or expired session. Login uses INVALID_CREDENTIALS for an incorrect email or password.
       headers:
         X-Request-ID:
           schema:
@@ -1691,8 +1948,7 @@ components:
           example:
             error:
               code: UNAUTHENTICATED
-              message: Missing or expired session. Login uses INVALID_CREDENTIALS for an incorrect email
-                or password.
+              message: Missing or expired session. Login uses INVALID_CREDENTIALS for an incorrect email or password.
               details: []
               request_id: d5c3d028-5398-43fc-9100-2ec3c7d936f4
     Error403:

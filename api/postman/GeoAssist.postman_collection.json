@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "GeoAssist - Assignment 6",
+    "name": "GeoAssist — Assignment 6 + Final Project",
     "description": "Runnable ordered backend demonstration. Local synthetic accounts only. Run once per minute to respect login rate limits; registration is limited to 5/hour/IP. Requests create a fresh user, create and soft-delete one demonstration place. Cookies are managed by Postman.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -27,6 +27,10 @@
     },
     {
       "key": "select_event_key",
+      "value": ""
+    },
+    {
+      "key": "recommendation_build_id",
       "value": ""
     }
   ],
@@ -946,6 +950,107 @@
             "exec": [
               "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
             ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Final Project — Recommendations",
+      "description": "Run after model startup. Rebuild is asynchronous; repeat status until ready/skipped/failed. Manual rebuild cooldown is 60 seconds.",
+      "item": [
+        {
+          "name": "01 Login student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student01@geoassist.local\",\n  \"password\": \"Student-demo-2026!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "02 Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/me/recommendations?limit=10"
+          }
+        },
+        {
+          "name": "03 Recommendations nearby cafes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/me/recommendations?limit=10&category=cafe&longitude=71.4304&latitude=51.1282&radius_m=5000"
+          }
+        },
+        {
+          "name": "04 Login admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@geoassist.local\",\n  \"password\": \"Admin-demo-2026!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "05 Model status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/admin/recommendations/status"
+          }
+        },
+        {
+          "name": "06 Rebuild (no body)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/v1/admin/recommendations/rebuild"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) pm.collectionVariables.set(\"recommendation_build_id\", pm.response.json().data.build_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 Poll requested build",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/admin/recommendations/status?build_id={{recommendation_build_id}}"
           }
         }
       ]

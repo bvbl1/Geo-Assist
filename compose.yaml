@@ -33,6 +33,11 @@ services:
       MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0
       MONGO_DATABASE: "${MONGO_DATABASE:-geoassist}"
       COOKIE_SECURE: "false"
+      REC_AUTO_REBUILD: "${REC_AUTO_REBUILD:-true}"
+      REC_CHECK_INTERVAL: "${REC_CHECK_INTERVAL:-5m}"
+      REC_MODEL_POLL_INTERVAL: "5s"
+      REC_SOURCE_TIMEOUT: "20s"
+      REC_BUILD_TIMEOUT: "120s"
       AUTO_SEED: "${AUTO_SEED:-true}"
     ports:
       - "127.0.0.1:8080:8080"

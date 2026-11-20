@@ -16,6 +16,8 @@ import (
 	web "geo-assist/internal/platform/httpserver"
 	"geo-assist/internal/platform/security"
 	"geo-assist/internal/platform/webui"
+	rechttp "geo-assist/internal/recommendation/adapters/http"
+	rec "geo-assist/internal/recommendation/application"
 	app "geo-assist/internal/shared/application"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -23,7 +25,7 @@ import (
 	"time"
 )
 
-func Router(cfg config.Config, db *mongo.Database) *gin.Engine {
+func Router(cfg config.Config, db *mongo.Database, recommendations ...*rec.Service) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	_ = r.SetTrustedProxies(nil)
@@ -49,5 +51,8 @@ func Router(cfg config.Config, db *mongo.Database) *gin.Engine {
 	ih.RegisterRoutes(v1)
 	cataloghttp.NewHandler(catalog).RegisterRoutes(v1, ih.RequireAuth())
 	activityhttp.NewHandler(activity).RegisterRoutes(v1, ih.RequireAuth())
+	if len(recommendations) > 0 {
+		rechttp.Register(v1, ih.RequireAuth(), recommendations[0])
+	}
 	return r
 }
